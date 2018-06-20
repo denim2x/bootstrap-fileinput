@@ -13,18 +13,18 @@
     //noinspection JSUnresolvedVariable
     if (typeof define === 'function' && define.amd) { // jshint ignore:line
         // AMD. Register as an anonymous module.
-        define(['jquery'], factory); // jshint ignore:line
+        define(['jquery', 'pdfjs-dist'], factory); // jshint ignore:line
     } else { // noinspection JSUnresolvedVariable
         if (typeof module === 'object' && module.exports) { // jshint ignore:line
             // Node/CommonJS
             // noinspection JSUnresolvedVariable
-            module.exports = factory(require('jquery')); // jshint ignore:line
+            module.exports = factory(require('jquery'), require('pdfjs-dist')); // jshint ignore:line
         } else {
             // Browser globals
             factory(window.jQuery);
         }
     }
-}(function ($) {
+}(function ($, pdfjs) {
     "use strict";
 
     $.fn.fileinputLocales = {};
@@ -754,7 +754,8 @@
             tAudio = '<!--suppress ALL --><audio class="kv-preview-data file-preview-audio" controls' + tStyle + '>\n<source src="{data}" ' +
                 'type="{type}">\n' + $h.DEFAULT_PREVIEW + '\n</audio>\n';
             tFlash = '<embed class="kv-preview-data file-preview-flash" src="{data}" type="application/x-shockwave-flash"' + tStyle + '>\n';
-            tPdf = '<embed class="kv-preview-data file-preview-pdf" src="{data}" type="application/pdf"' + tStyle + '>\n';
+            //tPdf = '<embed class="kv-preview-data file-preview-pdf" src="{data}" type="application/pdf"' + tStyle + '>\n';
+            tPdf = '<canvas class="kv-preview-data file-preview-pdf"' + tStyle + '>\n';
             tObject = '<object class="kv-preview-data file-preview-object file-object {typeCss}" ' +
                 'data="{data}" type="{type}"' + tStyle + '>\n' + '<param name="movie" value="{caption}" />\n' +
                 $h.OBJECT_PARAMS + ' ' + $h.DEFAULT_PREVIEW + '\n</object>\n';
@@ -2892,6 +2893,20 @@
             var self = this;
             return self.reversePreviewOrder ? $preview.prepend(content) : $preview.append(content);
         },
+        _tryRenderPdf: function (cat, content) {
+            var doc = self._pdf;
+            if (doc == null) {
+                return false;
+            }
+            var viewport = page.getViewport(1);
+            var scale = content.width() / viewport.width;
+            var context = {
+                canvasContext: content.getContext('2d'),
+                viewport: page.getViewport(scale)
+            };
+            page.render(context);
+            return true;
+        },
         _previewDefault: function (file, previewId, isDisabled) {
             var self = this, $preview = self.$preview;
             if (!self.showPreview) {
@@ -2925,6 +2940,7 @@
                 content = self._generatePreviewTemplate(cat, iData, fname, ftype, previewId, false, fsize);
                 self._clearDefaultPreview();
                 self._addToPreview($preview, content);
+                self._tryRenderPdf(content);
                 var $img = $preview.find('#' + previewId + ' img');
                 if ($img.length && self.autoOrientImage) {
                     $h.validateOrientation(file, function (value) {
